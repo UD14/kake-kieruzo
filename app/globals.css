@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
+/* 全体リセットとベーススタイル */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html,
+body {
+  height: 100%;
+  background: #000000;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  /* スクロール禁止 */
+  overflow: hidden;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* 赤パルス警告アニメーション */
+@keyframes pulse-red {
+
+  0%,
+  100% {
+    background-color: #000000;
+  }
+
+  50% {
+    background-color: rgba(220, 38, 38, 0.3);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Copied! フェードアウトアニメーション */
+@keyframes fade-in-out {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.9);
+  }
+
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  75% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.9);
+  }
+}
+
+/* タイマー文字のグロー効果 */
+@keyframes glow-red {
+
+  0%,
+  100% {
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.8), 0 0 20px rgba(239, 68, 68, 0.4);
+  }
+
+  50% {
+    text-shadow: 0 0 20px rgba(239, 68, 68, 1), 0 0 40px rgba(239, 68, 68, 0.6);
+  }
+}
+
+/* モバイルでのキーボード表示対応 */
+#__next,
+main {
+  height: 100dvh;
+}
+
+/* textarea のプレースホルダー非表示（透かし専用） */
+textarea::placeholder {
+  color: transparent;
+}
+
+/* スクロールバー非表示 */
+textarea {
+  scrollbar-width: none;
+}
+
+textarea::-webkit-scrollbar {
+  display: none;
 }
