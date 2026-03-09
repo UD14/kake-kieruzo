@@ -14,52 +14,66 @@ const QUOTES = [
   "最初の一文が最大の壁",
 ];
 
-// タイマーの初期値（秒）
 const INITIAL_TIME = 10.0;
-// 警告開始の残り時間（秒）
-const WARNING_THRESHOLD = 3.0;
-// Softモードの削除間隔（ms）
+const WARNING_THRESHOLD = 3.0;  // 赤警告
+const YELLOW_THRESHOLD = 6.0;   // 黄色警告
 const SOFT_DELETE_INTERVAL = 500;
 
+// タイムアップ時のランダムメッセージ（main + 小さいサブ）
+const DEATH_MESSAGES: { main: string; sub: string }[] = [
+  { main: "You died.", sub: "考えすぎた。手が止まった。" },
+  { main: "GAME OVER", sub: "また最初からやれ。" },
+  { main: "消えた。", sub: "完璧を求めた代償だ。" },
+  { main: "遅すぎた。", sub: "0.1秒でも早く打て。" },
+  { main: "思考、停止。", sub: "脳より手を先に動かせ。" },
+  { main: "ドンマイ。次は書け。", sub: "失敗は許す。停止は許さない。" },
+  { main: "R.I.P. あなたの文章", sub: "消えた文章は、もとから存在しなかった。" },
+  { main: "脳みそ、フリーズ。", sub: "再起動して、また挑め。" },
+  { main: "完璧主義に負けた。", sub: "完璧な文章より、存在する文章の方が価値がある。" },
+  { main: "仕事が遅い。", sub: "エジソンも最初の一文字を書いた。" },
+  { main: "お前の手、飾りか。", sub: "飾りなら外せ。道具は使え。" },
+  { main: "A型かよ。", sub: "血液型のせいにするな。" },
+  { main: "それが限界か。", sub: "10秒間だぞ。" },
+  { main: "悔しくないのか。", sub: "悔しければ、すぐに書け。" },
+  { main: "次は逃げるな。", sub: "逃げた先に文章はない。" },
+  { main: "惜しい。次こそ。", sub: "惜しいは成長の証だ。" },
+];
+
 type Mode = "hard" | "soft";
-type AppState = "idle" | "running" | "stopped" | "copying" | "soft-deleting";
+type AppState = "lp" | "idle" | "running" | "stopped" | "soft-deleting";
 
 export default function Home() {
+  const [appState, setAppState] = useState<AppState>("lp");
   const [text, setText] = useState("");
   const [timeLeft, setTimeLeft] = useState(INITIAL_TIME);
-  const [appState, setAppState] = useState<AppState>("idle");
   const [mode, setMode] = useState<Mode>("hard");
   const [quote] = useState(
     () => QUOTES[Math.floor(Math.random() * QUOTES.length)]
   );
   const [showCopied, setShowCopied] = useState(false);
   const [isWarning, setIsWarning] = useState(false);
+  // ホバー中のモード（ツールチップ表示用）
+  const [hoveredMode, setHoveredMode] = useState<Mode | null>(null);
+  // タイムアップ時に表示するメッセージ
+  const [deletedMessage, setDeletedMessage] = useState<{ main: string; sub: string } | null>(null);
+  // 設定モーダル表示
+  const [showSettings, setShowSettings] = useState(false);
+  // コピーショートカット設定　'cmd+enter' | 'shift+enter'
+  const [copyShortcut, setCopyShortcut] = useState<'cmd+enter' | 'shift+enter'>('cmd+enter');
 
-  // タイマーIntervalのref
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Softモード削除IntervalのRef
   const softIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // タイムレフト精度管理用（setStateの遅延を避けるため）
   const timeLeftRef = useRef(INITIAL_TIME);
-  const appStateRef = useRef<AppState>("idle");
+  const appStateRef = useRef<AppState>("lp");
 
-  // タイマーをクリア
   const clearTimerInterval = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
   }, []);
 
-  // Softモード削除インターバルをクリア
   const clearSoftInterval = useCallback(() => {
-    if (softIntervalRef.current) {
-      clearInterval(softIntervalRef.current);
-      softIntervalRef.current = null;
-    }
+    if (softIntervalRef.current) { clearInterval(softIntervalRef.current); softIntervalRef.current = null; }
   }, []);
 
-  // タイマーリセット（入力のたびに呼ぶ）
   const resetTimer = useCallback(() => {
     clearSoftInterval();
     timeLeftRef.current = INITIAL_TIME;
@@ -69,7 +83,6 @@ export default function Home() {
     appStateRef.current = "running";
   }, [clearSoftInterval]);
 
-  // タイマー停止（コピー完了時など）
   const stopTimer = useCallback(() => {
     clearTimerInterval();
     clearSoftInterval();
@@ -78,43 +91,46 @@ export default function Home() {
     setIsWarning(false);
   }, [clearTimerInterval, clearSoftInterval]);
 
-  // コピー処理
   const handleCopy = useCallback(async () => {
     if (!text.trim()) return;
     try {
       await navigator.clipboard.writeText(text);
-      stopTimer();
+      // タイマーを停止するが stopped にせず idle に戻す → 続けて入力可能
+      clearTimerInterval();
+      clearSoftInterval();
+      timeLeftRef.current = INITIAL_TIME;
+      setTimeLeft(INITIAL_TIME);
+      setIsWarning(false);
+      setAppState("idle");
+      appStateRef.current = "idle";
       setShowCopied(true);
-      // 1.5秒後にCopied!を非表示
       setTimeout(() => setShowCopied(false), 1500);
     } catch (e) {
-      console.error("クリップボードへのコピーに失敗:", e);
+      console.error("コピー失敗:", e);
     }
-  }, [text, stopTimer]);
+  }, [text, clearTimerInterval, clearSoftInterval]);
 
-  // タイマーの本体（setIntervalで100msごとに実行）
+  // タイマー本体 (100ms ごと) — showSettingsが開いている間は停止
   useEffect(() => {
-    if (appState !== "running") return;
-
+    if (appState !== "running" || showSettings) return;
     clearTimerInterval();
 
     timerRef.current = setInterval(() => {
       const newTime = Math.round((timeLeftRef.current - 0.1) * 10) / 10;
 
       if (newTime <= 0) {
-        // タイムアップ処理
         clearTimerInterval();
         timeLeftRef.current = 0;
         setTimeLeft(0);
 
         if (mode === "hard") {
-          // Hardモード: 即座に全削除
+          // ランダムな死亡メッセージを設定
+          setDeletedMessage(DEATH_MESSAGES[Math.floor(Math.random() * DEATH_MESSAGES.length)]);
           setText("");
           setAppState("stopped");
           appStateRef.current = "stopped";
           setIsWarning(false);
         } else {
-          // Softモード: 末尾から1文字ずつ削除
           setAppState("soft-deleting");
           appStateRef.current = "soft-deleting";
           setIsWarning(false);
@@ -122,6 +138,10 @@ export default function Home() {
             setText((prev) => {
               if (prev.length <= 1) {
                 clearSoftInterval();
+                // Softモードでも全消去時にメッセージ表示
+                setDeletedMessage(DEATH_MESSAGES[Math.floor(Math.random() * DEATH_MESSAGES.length)]);
+                setAppState("stopped");
+                appStateRef.current = "stopped";
                 return "";
               }
               return prev.slice(0, -1);
@@ -131,161 +151,497 @@ export default function Home() {
       } else {
         timeLeftRef.current = newTime;
         setTimeLeft(newTime);
-        // 警告状態更新
         setIsWarning(newTime <= WARNING_THRESHOLD);
       }
     }, 100);
 
     return () => clearTimerInterval();
-  }, [appState, mode, clearTimerInterval, clearSoftInterval]);
+  }, [appState, mode, showSettings, clearTimerInterval, clearSoftInterval]);
 
-  // キーボードショートカット（Cmd/Ctrl+Enter でコピー）
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        e.preventDefault();
-        handleCopy();
+      if (copyShortcut === 'cmd+enter') {
+        // Cmd/Ctrl + Enter でコピー（デフォルト）
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+          e.preventDefault();
+          handleCopy();
+        }
+      } else {
+        // Shift + Enter でコピー、Enter は改行
+        if (e.shiftKey && e.key === "Enter") {
+          e.preventDefault();
+          handleCopy();
+        }
       }
     },
-    [handleCopy]
+    [handleCopy, copyShortcut]
   );
 
-  // テキスト変更ハンドラ
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const newText = e.target.value;
-      setText(newText);
-
-      // stopped状態以外ではタイマーをリセット
-      if (
-        appStateRef.current !== "stopped" &&
-        appStateRef.current !== "copying"
-      ) {
-        resetTimer();
-      }
-
-      // Softモード削除中にキー入力があれば停止してリセット
-      if (appStateRef.current === "soft-deleting") {
-        resetTimer();
-      }
-
-      // idleから最初の入力でタイマースタート
-      if (appStateRef.current === "idle") {
-        resetTimer();
-      }
+      setText(e.target.value);
+      const s = appStateRef.current;
+      if (s !== "stopped") resetTimer();
     },
     [resetTimer]
   );
 
-  // タイマー表示フォーマット（1桁小数点）
+  const handleStart = useCallback(() => {
+    setAppState("idle");
+    appStateRef.current = "idle";
+  }, []);
+
   const formattedTime = timeLeft.toFixed(1);
+  const showWarning = isWarning && appState === "running";    // 3秒以下：赤
+  const showYellow = appState === "running" && timeLeft <= YELLOW_THRESHOLD && !showWarning; // 6秒以下：黄
+  const charCount = text.length;
 
-  // 警告中かどうか（Softモード削除中も警告OFF）
-  const showWarning = isWarning && appState === "running";
+  // 透かしタイマーの色：通常→黄色→赤で段階的に濃く
+  const overlayTimerColor = showWarning
+    ? "rgba(239, 68, 68, 0.55)"
+    : showYellow
+      ? "rgba(234, 179, 8, 0.30)"
+      : "rgba(255, 255, 255, 0.06)";
 
+  const bgAnimation = showWarning
+    ? "pulse-red 0.4s ease-in-out infinite"
+    : showYellow
+      ? "pulse-yellow 1.0s ease-in-out infinite"
+      : "none";
+
+  // ヘッダータイマーの色
+  const timerColor = appState === "stopped"
+    ? "#222"
+    : showWarning
+      ? "#ef4444"
+      : showYellow
+        ? "#eab308"
+        : "#ffffff";
+
+  // ─── LP画面 ───────────────────────────────────────────────
+  if (appState === "lp") {
+    return (
+      <main
+        style={{
+          height: "100dvh",
+          backgroundColor: "#000",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "var(--font-mono)",
+          padding: "0 24px",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {/* 背景画像 — スーパーかっこいいサイバー空間 */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: "url('/hero-bg.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            opacity: 0.85,
+            filter: "brightness(0.6) contrast(1.2)",
+            zIndex: 0,
+          }}
+        />
+        {/* 背景グラデーションオーバーレイ（中央のテキストを読みやすく） */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "radial-gradient(circle at center 40%, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.1) 100%)",
+            zIndex: 1,
+          }}
+        />
+
+        {/* コンテンツ（z-index 2以上） */}
+        <div
+          style={{
+            position: "relative",
+            zIndex: 2,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            width: "100%",
+            maxWidth: "500px",
+          }}
+        >
+          {/* キャッチコピー（小さく、上） */}
+          <p
+            style={{
+              fontSize: "11px",
+              color: "#555",
+              letterSpacing: "0.2em",
+              marginBottom: "16px",
+              textTransform: "uppercase",
+            }}
+          >
+            Forced Writing Tool
+          </p>
+
+          {/* タイトル */}
+          <h1
+            style={{
+              fontSize: "clamp(36px, 8vw, 68px)",
+              fontWeight: "bold",
+              color: "#fff",
+              letterSpacing: "0.03em",
+              marginBottom: "16px",
+              textAlign: "center",
+              lineHeight: 1.1,
+            }}
+          >
+            書け、消えるぞ
+          </h1>
+
+          {/* サブコピー */}
+          <p
+            style={{
+              fontSize: "clamp(13px, 1.8vw, 15px)",
+              color: "#555",
+              marginBottom: "52px",
+              textAlign: "center",
+              lineHeight: "1.9",
+              maxWidth: "340px",
+            }}
+          >
+            手を止めた瞬間、テキストが消える。<br />
+            完璧主義をぶっ壊す、10秒の恐怖。
+          </p>
+
+          {/* Hard / Soft カード */}
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              marginBottom: "28px",
+              width: "100%",
+            }}
+          >
+            {(["hard", "soft"] as Mode[]).map((m) => {
+              const isSelected = mode === m;
+              return (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  style={{
+                    flex: 1,
+                    fontFamily: "var(--font-mono)",
+                    padding: "14px 12px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    border: isSelected ? "1.5px solid rgba(255,255,255,0.8)" : "1px solid #1e1e1e",
+                    backgroundColor: isSelected ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.6)",
+                    backdropFilter: "blur(8px)",
+                    transition: "all 0.2s",
+                    textAlign: "left",
+                    position: "relative",
+                  }}
+                >
+                  {isSelected && (
+                    <span style={{ position: "absolute", top: "10px", right: "10px", fontSize: "11px", color: "#fff" }}>✓</span>
+                  )}
+                  <div style={{ fontSize: "12px", fontWeight: "bold", marginBottom: "5px", letterSpacing: "0.1em", color: isSelected ? "#fff" : "#555" }}>
+                    {m.toUpperCase()}
+                  </div>
+                  <div style={{ fontSize: "10px", lineHeight: "1.6", color: isSelected ? "#aaa" : "#3a3a3a" }}>
+                    {m === "hard"
+                      ? "0秒で全文即削除。\n容赦なし。"
+                      : "末尾から1文字ずつ削除。\n書けば止まる。"}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Start Writing ボタン */}
+          <button
+            onClick={handleStart}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "clamp(14px, 2vw, 16px)",
+              padding: "15px 56px",
+              borderRadius: "6px",
+              backgroundColor: "#ffffff",
+              color: "#000000",
+              border: "none",
+              cursor: "pointer",
+              fontWeight: "bold",
+              letterSpacing: "0.08em",
+              transition: "all 0.15s",
+              width: "100%",
+              maxWidth: "320px",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#e5e5e5"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#ffffff"; }}
+          >
+            Start Writing →
+          </button>
+
+          {/* 注釈 */}
+          <p style={{ marginTop: "20px", fontSize: "11px", color: "#333", letterSpacing: "0.04em" }}>
+            10秒間、キーを叩き続けろ。
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+
+  // ─── ライティング画面 ─────────────────────────────────────
   return (
     <main
-      className="relative flex flex-col"
       style={{
         height: "100dvh",
         backgroundColor: "#000",
-        // 警告時にパルスアニメーションを適用
-        animation: showWarning ? "pulse-red 0.8s ease-in-out infinite" : "none",
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        animation: bgAnimation,
       }}
     >
-      {/* ─── ヘッダー：モード切替とタイマー ─── */}
-      <div className="flex items-center justify-between px-5 pt-4 pb-2 flex-shrink-0">
-        {/* モード切替 */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setMode("hard")}
-            className="px-3 py-1 text-xs rounded transition-all duration-200 cursor-pointer"
-            style={{
-              fontFamily: "var(--font-mono)",
-              backgroundColor: mode === "hard" ? "#fff" : "transparent",
-              color: mode === "hard" ? "#000" : "#444",
-              border: "1px solid",
-              borderColor: mode === "hard" ? "#fff" : "#333",
-            }}
-          >
-            HARD
-          </button>
-          <button
-            onClick={() => setMode("soft")}
-            className="px-3 py-1 text-xs rounded transition-all duration-200 cursor-pointer"
-            style={{
-              fontFamily: "var(--font-mono)",
-              backgroundColor: mode === "soft" ? "#fff" : "transparent",
-              color: mode === "soft" ? "#000" : "#444",
-              border: "1px solid",
-              borderColor: mode === "soft" ? "#fff" : "#333",
-            }}
-          >
-            SOFT
-          </button>
+      {/* ヘッダー：モード切替 + 小さいタイマー */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "14px 20px 6px",
+          flexShrink: 0,
+        }}
+      >
+        {/* モード切替 + ツールチップ */}
+        <div style={{ display: "flex", gap: "6px", position: "relative" }}>
+          {(["hard", "soft"] as Mode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              onMouseEnter={() => setHoveredMode(m)}
+              onMouseLeave={() => setHoveredMode(null)}
+              style={{
+                fontFamily: "var(--font-mono)",
+                padding: "4px 12px",
+                fontSize: "11px",
+                borderRadius: "4px",
+                cursor: "pointer",
+                border: "1px solid",
+                backgroundColor: mode === m ? "#fff" : "transparent",
+                color: mode === m ? "#000" : "#444",
+                borderColor: mode === m ? "#fff" : "#333",
+                transition: "all 0.2s",
+              }}
+            >
+              {m.toUpperCase()}
+            </button>
+          ))}
+
+          {/* ツールチップ */}
+          {hoveredMode && (
+            <div
+              style={{
+                position: "absolute",
+                top: "calc(100% + 8px)",
+                left: 0,
+                backgroundColor: "#111",
+                border: "1px solid #2a2a2a",
+                borderRadius: "6px",
+                padding: "10px 14px",
+                width: "220px",
+                zIndex: 100,
+                pointerEvents: "none",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "11px",
+                  fontWeight: "bold",
+                  color: "#fff",
+                  marginBottom: "4px",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                {hoveredMode.toUpperCase()}
+              </div>
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "11px",
+                  color: "#666",
+                  lineHeight: "1.6",
+                }}
+              >
+                {hoveredMode === "hard"
+                  ? "0秒到達で全文を即削除。\n容赦なし。"
+                  : "0秒から末尾を1文字ずつ削除。\n書き続ければ止まる。"}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* タイマー表示 */}
-        <div
-          className="text-4xl font-bold tabular-nums transition-all duration-200"
-          style={{
-            fontFamily: "var(--font-mono)",
-            color:
-              appState === "stopped"
-                ? "#333"
-                : showWarning
-                  ? "#ef4444"
-                  : "#ffffff",
-            animation:
-              showWarning ? "glow-red 0.8s ease-in-out infinite" : "none",
-          }}
-        >
-          {appState === "stopped" ? "STOP" : formattedTime}
+        {/* 右上：文字数 + 設定ボタン */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontWeight: "bold",
+              fontVariantNumeric: "tabular-nums",
+              fontSize: "clamp(24px, 5vw, 42px)",
+              lineHeight: 1,
+              color: appState === "stopped" ? "#222" : "#fff",
+              transition: "color 0.2s",
+            }}
+          >
+            {charCount}
+            <span style={{ fontSize: "0.4em", color: "#444", marginLeft: "4px", fontWeight: "normal" }}>ch</span>
+          </div>
+          {/* 設定ボタン */}
+          <button
+            onClick={() => setShowSettings(true)}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "18px",
+              background: "transparent",
+              border: "none",
+              color: "#333",
+              cursor: "pointer",
+              padding: "4px",
+              lineHeight: 1,
+              transition: "color 0.2s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#888")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#333")}
+            title="設定"
+          >
+            ⚙️
+          </button>
         </div>
       </div>
 
-      {/* ─── メインエリア：透かし + テキストエリア ─── */}
-      <div className="relative flex-1 min-h-0 px-3 pb-2">
-        {/* 透かしメッセージ（絶対配置で背面に） */}
+      {/* メインエリア */}
+      <div
+        style={{
+          position: "relative",
+          flex: 1,
+          minHeight: 0,
+          padding: "0 12px 4px",
+        }}
+      >
+        {/* 巨大透かしタイマー：常に背面に表示、段階的に濃くなる */}
+        {appState !== "stopped" && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              userSelect: "none",
+              zIndex: 0,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontWeight: "bold",
+                fontVariantNumeric: "tabular-nums",
+                fontSize: "clamp(100px, 28vw, 260px)",
+                lineHeight: 1,
+                color: overlayTimerColor,
+                transition: "color 0.3s ease",
+                animation: showWarning ? "glow-red 0.4s ease-in-out infinite" : "none",
+                filter: showYellow && !showWarning ? "drop-shadow(0 0 12px rgba(234,179,8,0.4))" : "none",
+                letterSpacing: "-0.05em",
+              }}
+            >
+              {appState === "idle" ? "0.0" : formattedTime}
+            </span>
+          </div>
+        )}
+
+        {/* 格言（下部に薄く） */}
         <div
-          className="absolute inset-3 flex items-center justify-center pointer-events-none select-none"
           style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            pointerEvents: "none",
+            userSelect: "none",
             zIndex: 0,
+            padding: "12px 12px 16px",
           }}
         >
           <span
-            className="text-lg text-center leading-relaxed"
             style={{
               fontFamily: "var(--font-mono)",
-              color: "rgba(255, 255, 255, 0.12)",
-              fontSize: "clamp(14px, 3vw, 22px)",
+              color: "rgba(255, 255, 255, 0.07)",
+              fontSize: "clamp(11px, 2vw, 16px)",
+              textAlign: "center",
             }}
           >
             {quote}
           </span>
         </div>
 
-        {/* テキストエリア本体 */}
+        {/* エンプティ時の鼓舞メッセージ（textareaの上に重ねろ） */}
+        {text === "" && appState !== "stopped" && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              padding: "16px 20px",
+              pointerEvents: "none",
+              userSelect: "none",
+              zIndex: 2,
+            }}
+          >
+            <p style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "clamp(14px, 2vw, 18px)",
+              lineHeight: "2.0",
+              color: "rgba(255,255,255,0.22)",
+              margin: 0,
+            }}>
+              頭の中のものを、そのまま出せ。<br />
+              整形はこの後、コピペしてAIに任せればいい。<br />
+              <span style={{ color: "rgba(255,255,255,0.12)" }}>いいから、早く書け。</span>
+            </p>
+          </div>
+        )}
+
+        {/* テキストエリア（z-index 3 でオーバーレイより前面） */}
         <textarea
           autoFocus
           value={text}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           readOnly={appState === "stopped"}
-          className="w-full h-full resize-none outline-none"
           style={{
+            width: "100%",
+            height: "100%",
+            resize: "none",
+            outline: "none",
             fontFamily: "var(--font-mono)",
-            fontSize: "clamp(16px, 2vw, 20px)",
+            fontSize: "clamp(16px, 2.5vw, 22px)",
             lineHeight: "1.8",
             backgroundColor: "transparent",
             color: "#ffffff",
             caretColor: "#ffffff",
-            zIndex: 1,
-            position: "relative",
             border: "none",
             padding: "8px",
+            position: "relative",
+            zIndex: 3,
           }}
-          placeholder=" "
+          placeholder=""
           spellCheck={false}
           autoComplete="off"
           autoCorrect="off"
@@ -293,63 +649,272 @@ export default function Home() {
         />
       </div>
 
-      {/* ─── フッター：コピーボタン（モバイル用） ─── */}
+      {/* フッター */}
       <div
-        className="flex-shrink-0 px-4 pb-4 pt-2 flex items-center justify-between"
-        style={{ borderTop: "1px solid #111" }}
+        style={{
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "10px 14px 18px",
+          borderTop: "1px solid #111",
+          gap: "12px",
+        }}
       >
-        {/* 操作ヒント（PC向け） */}
-        <span
-          className="text-xs hidden sm:block"
-          style={{ color: "#333", fontFamily: "var(--font-mono)" }}
-        >
-          ⌘ + Enter でコピー
-        </span>
-        <span
-          className="text-xs sm:hidden"
-          style={{ color: "#333", fontFamily: "var(--font-mono)" }}
-        >
-          {appState === "idle"
-            ? "書き始めてください"
-            : appState === "stopped"
-              ? "タイムアップ"
-              : `残り ${formattedTime}s`}
-        </span>
+        {/* 文字数 + ヒント */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "2px", flexShrink: 0 }}>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "20px",
+              fontWeight: "bold",
+              color: charCount > 0 ? "#fff" : "#333",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {charCount}
+            <span style={{ fontSize: "11px", color: "#444", marginLeft: "4px" }}>chars</span>
+          </span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "#333" }}>
+            {appState === "stopped" ? "タイムアップ" : "⌘ + Enter"}
+          </span>
+        </div>
 
-        {/* Copy & Exit ボタン */}
+        {/* Copy & Exit ボタン — 大型CTA */}
         <button
           onClick={handleCopy}
           disabled={!text.trim() || appState === "stopped"}
-          className="px-5 py-2 text-sm rounded transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
           style={{
             fontFamily: "var(--font-mono)",
-            backgroundColor:
-              !text.trim() || appState === "stopped" ? "#111" : "#ffffff",
-            color: !text.trim() || appState === "stopped" ? "#333" : "#000000",
-            border: "1px solid",
-            borderColor: !text.trim() || appState === "stopped" ? "#222" : "#fff",
+            fontSize: "clamp(14px, 2vw, 17px)",
+            fontWeight: "bold",
+            padding: "14px 0",
+            borderRadius: "8px",
+            flex: 1,
+            cursor: !text.trim() || appState === "stopped" ? "not-allowed" : "pointer",
+            border: "2px solid",
+            backgroundColor: !text.trim() || appState === "stopped" ? "#0d0d0d" : "#ffffff",
+            color: !text.trim() || appState === "stopped" ? "#333" : "#000",
+            borderColor: !text.trim() || appState === "stopped" ? "#1a1a1a" : "#ffffff",
+            transition: "all 0.2s",
+            letterSpacing: "0.05em",
           }}
         >
           Copy &amp; Exit
         </button>
       </div>
 
-      {/* ─── Copied! オーバーレイ ─── */}
+      {/* Copied! オーバーレイ */}
       {showCopied && (
         <div
-          className="fixed inset-0 flex items-center justify-center pointer-events-none"
-          style={{ zIndex: 50 }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: 50,
+          }}
         >
           <div
-            className="px-8 py-4 rounded-lg text-2xl font-bold"
             style={{
               fontFamily: "var(--font-mono)",
-              backgroundColor: "#ffffff",
-              color: "#000000",
+              fontSize: "28px",
+              fontWeight: "bold",
+              padding: "20px 48px",
+              borderRadius: "10px",
+              backgroundColor: "#fff",
+              color: "#000",
               animation: "fade-in-out 1.5s ease forwards",
             }}
           >
             Copied!
+          </div>
+        </div>
+      )}
+
+      {/* タイムアップ死亡メッセージオーバーレイ */}
+      {appState === "stopped" && deletedMessage && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: 40,
+            backgroundColor: "rgba(0,0,0,0.6)",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "clamp(32px, 8vw, 72px)",
+              fontWeight: "bold",
+              color: "#ef4444",
+              letterSpacing: "0.04em",
+              textAlign: "center",
+              animation: "glow-red 2s ease-in-out infinite",
+              padding: "0 24px",
+            }}
+          >
+            {deletedMessage.main}
+          </div>
+          <div
+            style={{
+              marginTop: "12px",
+              fontFamily: "var(--font-mono)",
+              fontSize: "clamp(12px, 2vw, 14px)",
+              color: "#555",
+              textAlign: "center",
+              letterSpacing: "0.04em",
+              padding: "0 24px",
+            }}
+          >
+            {deletedMessage.sub}
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: "20px",
+              fontFamily: "var(--font-mono)",
+              fontSize: "13px",
+              color: "#555",
+              background: "transparent",
+              border: "1px solid #2a2a2a",
+              borderRadius: "6px",
+              padding: "8px 20px",
+              cursor: "pointer",
+              letterSpacing: "0.04em",
+              transition: "all 0.2s",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              pointerEvents: "auto",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "#555"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#555"; e.currentTarget.style.borderColor = "#2a2a2a"; }}
+          >
+            <span style={{ fontSize: "16px" }}>↺</span>
+            やり直す
+          </button>
+        </div>
+      )}
+
+      {/* 設定モーダル */}
+      {showSettings && (
+        <div
+          onClick={() => setShowSettings(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.75)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 200,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: "#0d0d0d",
+              border: "1px solid #222",
+              borderRadius: "12px",
+              padding: "28px 28px 24px",
+              width: "min(360px, 90vw)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <span style={{ fontSize: "14px", fontWeight: "bold", color: "#fff", letterSpacing: "0.06em" }}>SETTINGS</span>
+              <button
+                onClick={() => setShowSettings(false)}
+                style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "18px", lineHeight: 1 }}
+              >✕</button>
+            </div>
+
+            {/* タイマー一時停止バナー */}
+            {appState === "running" || appState === "idle" || appState === "soft-deleting" ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  backgroundColor: "rgba(234,179,8,0.08)",
+                  border: "1px solid rgba(234,179,8,0.25)",
+                  borderRadius: "6px",
+                  padding: "7px 12px",
+                  marginBottom: "20px",
+                }}
+              >
+                <span style={{ fontSize: "13px" }}>⏸</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "#ca8a04", letterSpacing: "0.04em" }}>
+                  タイマーを一時停止しています
+                </span>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "20px" }} />
+            )}
+
+            {/* コピーショートカット */}
+            <div style={{ marginBottom: "24px" }}>
+              <div style={{ fontSize: "11px", color: "#555", marginBottom: "10px", letterSpacing: "0.06em" }}>COPY SHORTCUT</div>
+              {([
+                { value: "cmd+enter" as const, label: "⌘ / Ctrl + Enter", desc: "このショートカットでコピー＆一時停止" },
+                { value: "shift+enter" as const, label: "Shift + Enter", desc: "Enterで改行、このショートカットでコピー" },
+              ]).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setCopyShortcut(opt.value)}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "flex-start",
+                    width: "100%", padding: "12px 14px", marginBottom: "6px",
+                    borderRadius: "8px", border: "1px solid", textAlign: "left",
+                    backgroundColor: copyShortcut === opt.value ? "#fff" : "transparent",
+                    color: copyShortcut === opt.value ? "#000" : "#555",
+                    borderColor: copyShortcut === opt.value ? "#fff" : "#222",
+                    cursor: "pointer", fontFamily: "var(--font-mono)", transition: "all 0.15s",
+                    position: "relative",
+                  }}
+                >
+                  {copyShortcut === opt.value && <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)" }}>✓</span>}
+                  <span style={{ fontSize: "13px", fontWeight: "bold", marginBottom: "2px" }}>{opt.label}</span>
+                  <span style={{ fontSize: "10px", color: copyShortcut === opt.value ? "#555" : "#444" }}>{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* モード */}
+            <div>
+              <div style={{ fontSize: "11px", color: "#555", marginBottom: "10px", letterSpacing: "0.06em" }}>MODE</div>
+              {([
+                { value: "hard" as const, label: "HARD", desc: "タイムアップで全文を即削除。潔く再スタート。" },
+                { value: "soft" as const, label: "SOFT", desc: "書き続けることで文章が生き延びる。" },
+              ]).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setMode(opt.value)}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "flex-start",
+                    width: "100%", padding: "12px 14px", marginBottom: "6px",
+                    borderRadius: "8px", border: "1px solid", textAlign: "left",
+                    backgroundColor: mode === opt.value ? "#fff" : "transparent",
+                    color: mode === opt.value ? "#000" : "#555",
+                    borderColor: mode === opt.value ? "#fff" : "#222",
+                    cursor: "pointer", fontFamily: "var(--font-mono)", transition: "all 0.15s",
+                    position: "relative",
+                  }}
+                >
+                  {mode === opt.value && <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)" }}>✓</span>}
+                  <span style={{ fontSize: "13px", fontWeight: "bold", marginBottom: "2px" }}>{opt.label}</span>
+                  <span style={{ fontSize: "10px", color: mode === opt.value ? "#555" : "#444" }}>{opt.desc}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

@@ -23,6 +23,32 @@ body {
   overflow: hidden;
 }
 
+/* 黄色パルス警告アニメーション（6秒以下） */
+@keyframes pulse-yellow {
+
+  0%,
+  100% {
+    background-color: #000000;
+  }
+
+  50% {
+    background-color: rgba(202, 138, 4, 0.15);
+  }
+}
+
+/* 黄色グロー（タイマー文字用） */
+@keyframes glow-yellow {
+
+  0%,
+  100% {
+    text-shadow: 0 0 8px rgba(234, 179, 8, 0.7), 0 0 16px rgba(234, 179, 8, 0.3);
+  }
+
+  50% {
+    text-shadow: 0 0 16px rgba(234, 179, 8, 1), 0 0 32px rgba(234, 179, 8, 0.5);
+  }
+}
+
 /* 赤パルス警告アニメーション */
 @keyframes pulse-red {
 
@@ -78,9 +104,10 @@ main {
   height: 100dvh;
 }
 
-/* textarea のプレースホルダー非表示（透かし専用） */
+/* textarea のプレースホルダー：薄暗く表示 */
 textarea::placeholder {
-  color: transparent;
+  color: rgba(255, 255, 255, 0.2);
+  font-style: normal;
 }
 
 /* スクロールバー非表示 */
