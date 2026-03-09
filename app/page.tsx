@@ -16,8 +16,15 @@ const QUOTES = [
 
 const INITIAL_TIME = 10.0;
 const WARNING_THRESHOLD = 3.0;  // 赤警告
-const YELLOW_THRESHOLD = 6.0;   // 黄色警告
+const YELLOW_THRESHOLD = 7.0;   // 黄色警告
 const SOFT_DELETE_INTERVAL = 500;
+
+// 回復時のメッセージ（残り時間で分岐）
+const RECOVER_MESSAGES = {
+  red: ["EXCELLENT!!", "CRITICAL SAVE!!", "GOD SPEED!!", "MIRACLE!!", "BRAVO!!"],
+  yellow: ["GREAT!", "NICE CATCH!", "GOOD RECOVERY!", "SAFE!"],
+  green: ["+10.0"],
+};
 
 // タイムアップ時のランダムメッセージ（main + 小さいサブ）
 const DEATH_MESSAGES: { main: string; sub: string }[] = [
@@ -60,6 +67,15 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   // コピーショートカット設定　'cmd+enter' | 'shift+enter'
   const [copyShortcut, setCopyShortcut] = useState<'cmd+enter' | 'shift+enter'>('cmd+enter');
+  // ランダム背景画像
+  const [bgImage, setBgImage] = useState<string>('/hero-bg.png');
+  // 回復時のホイミ（グリーンフラッシュ）エフェクトのトリガーと種類
+  const [recoverCount, setRecoverCount] = useState(0);
+  const [recoverType, setRecoverType] = useState<"green" | "yellow" | "red">("green");
+  const [recoverMessage, setRecoverMessage] = useState<string>("+10.0");
+  const recoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // スマホ判定（マウント後に判定）
+  const [isMobile, setIsMobile] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const softIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -72,6 +88,17 @@ export default function Home() {
 
   const clearSoftInterval = useCallback(() => {
     if (softIntervalRef.current) { clearInterval(softIntervalRef.current); softIntervalRef.current = null; }
+  }, []);
+
+  // マウント時にランダム背景を設定＆スマホ判定
+  useEffect(() => {
+    const randomNum = Math.floor(Math.random() * 13) + 1;
+    setBgImage(`/bg/${randomNum}.png`);
+
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   const resetTimer = useCallback(() => {
@@ -171,17 +198,37 @@ export default function Home() {
         if (e.shiftKey && e.key === "Enter") {
           e.preventDefault();
           handleCopy();
+        } else if (appStateRef.current === "stopped") {
+          resetTimer();
         }
       }
     },
-    [handleCopy, copyShortcut]
+    [handleCopy, copyShortcut, appStateRef, resetTimer]
   );
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       setText(e.target.value);
       const s = appStateRef.current;
-      if (s !== "stopped") resetTimer();
+      if (s !== "stopped") {
+        if (timeLeftRef.current < 10.0) {
+          // 残り時間（回復前の状態）に応じてエフェクトの派手さを変える
+          let type: "green" | "yellow" | "red" = "green";
+          if (timeLeftRef.current <= 3.0) type = "red";
+          else if (timeLeftRef.current <= 7.0) type = "yellow";
+
+          setRecoverType(type);
+          const messages = RECOVER_MESSAGES[type];
+          setRecoverMessage(messages[Math.floor(Math.random() * messages.length)]);
+          setRecoverCount((c) => c + 1);
+
+          if (recoverTimeoutRef.current) clearTimeout(recoverTimeoutRef.current);
+          recoverTimeoutRef.current = setTimeout(() => {
+            setRecoverCount(0);
+          }, 800);
+        }
+        resetTimer();
+      }
     },
     [resetTimer]
   );
@@ -194,7 +241,7 @@ export default function Home() {
   const formattedTime = timeLeft.toFixed(1);
   const showWarning = isWarning && appState === "running";    // 3秒以下：赤
   const showYellow = appState === "running" && timeLeft <= YELLOW_THRESHOLD && !showWarning; // 6秒以下：黄
-  const charCount = text.length;
+  const charCount = text.replace(/[\s\n\r]/g, "").length;
 
   // 透かしタイマーの色：通常→黄色→赤で段階的に濃く
   const overlayTimerColor = showWarning
@@ -235,12 +282,12 @@ export default function Home() {
           overflow: "hidden",
         }}
       >
-        {/* 背景画像 — スーパーかっこいいサイバー空間 */}
+        {/* 背景画像 — スーパーかっこいいサイバー空間（ランダム） */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            backgroundImage: "url('/hero-bg.png')",
+            backgroundImage: `url('${bgImage}')`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             opacity: 0.85,
@@ -393,6 +440,25 @@ export default function Home() {
 
 
   // ─── ライティング画面 ─────────────────────────────────────
+  // 画面揺れのアニメーション適用（タイピング時 > ピンチ時）
+  let currentAnimation = bgAnimation;
+  if (showWarning) {
+    currentAnimation = "rumble 0.2s ease-in-out infinite"; // 赤色時は常に揺れる
+  }
+
+  // ホイミの色・アニメーション定義
+  const flashAnim =
+    recoverType === "red" ? "flash-green-max 0.8s ease-out forwards" :
+      recoverType === "yellow" ? "flash-green-mid 0.7s ease-out forwards" :
+        "flash-green 0.6s ease-out forwards";
+
+  const healTextAnim =
+    recoverType === "red" ? "heal-text-max 0.9s ease-out forwards" :
+      recoverType === "yellow" ? "heal-text-mid 0.8s ease-out forwards" :
+        "heal-text-green 0.7s ease-out forwards";
+
+  const healTextColor = "#4ade80"; // 常に癒やしのグリーン
+
   return (
     <main
       style={{
@@ -401,9 +467,59 @@ export default function Home() {
         display: "flex",
         flexDirection: "column",
         position: "relative",
-        animation: bgAnimation,
+        animation: currentAnimation,
+        transformOrigin: "center center",
       }}
     >
+      {/* ホイミ（回復）フラッシュオーバーレイ */}
+      {recoverCount > 0 && (
+        <div
+          key={`flash-${recoverCount}`}
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            animation: flashAnim,
+            zIndex: 10,
+          }}
+        />
+      )}
+
+      {/* ホイミ（回復）浮き出しテキスト */}
+      {recoverCount > 0 && (
+        <div
+          key={`text-${recoverCount}`}
+          style={{
+            position: "absolute",
+            top: "40%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            color: recoverType === "red" ? "#ffffff" : healTextColor,
+            fontFamily: "var(--font-mono)",
+            fontSize: recoverType === "red" ? "72px" : recoverType === "yellow" ? "48px" : "32px",
+            fontWeight: "bold",
+            pointerEvents: "none",
+            zIndex: 15,
+            animation: healTextAnim,
+            textAlign: "center",
+            textShadow: recoverType === "red"
+              ? "0 0 20px rgba(74, 222, 128, 0.9), 0 0 40px rgba(74, 222, 128, 0.5)"
+              : recoverType === "yellow"
+                ? "0 0 12px rgba(74, 222, 128, 0.4)"
+                : "none",
+            fontStyle: recoverType === "red" ? "italic" : "normal",
+            letterSpacing: recoverType === "red" ? "0.05em" : "0",
+          }}
+        >
+          {recoverType === "red" && (
+            <div style={{ fontSize: "24px", color: healTextColor, marginBottom: "4px", fontStyle: "normal", textShadow: "none", letterSpacing: "0" }}>+10.0s</div>
+          )}
+          {recoverType === "yellow" && (
+            <div style={{ fontSize: "16px", color: healTextColor, marginBottom: "2px", opacity: 0.9 }}>+10.0s</div>
+          )}
+          <div>{recoverMessage}</div>
+        </div>
+      )}
       {/* ヘッダー：モード切替 + 小さいタイマー */}
       <div
         style={{
@@ -550,8 +666,8 @@ export default function Home() {
                 fontFamily: "var(--font-mono)",
                 fontWeight: "bold",
                 fontVariantNumeric: "tabular-nums",
-                fontSize: "clamp(100px, 28vw, 260px)",
-                lineHeight: 1,
+                fontSize: "45vw", // 画面幅に対してほぼ限界まで大きく
+                lineHeight: 0.8,
                 color: overlayTimerColor,
                 transition: "color 0.3s ease",
                 animation: showWarning ? "glow-red 0.4s ease-in-out infinite" : "none",
@@ -860,33 +976,35 @@ export default function Home() {
               <div style={{ marginBottom: "20px" }} />
             )}
 
-            {/* コピーショートカット */}
-            <div style={{ marginBottom: "24px" }}>
-              <div style={{ fontSize: "11px", color: "#555", marginBottom: "10px", letterSpacing: "0.06em" }}>COPY SHORTCUT</div>
-              {([
-                { value: "cmd+enter" as const, label: "⌘ / Ctrl + Enter", desc: "このショートカットでコピー＆一時停止" },
-                { value: "shift+enter" as const, label: "Shift + Enter", desc: "Enterで改行、このショートカットでコピー" },
-              ]).map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setCopyShortcut(opt.value)}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "flex-start",
-                    width: "100%", padding: "12px 14px", marginBottom: "6px",
-                    borderRadius: "8px", border: "1px solid", textAlign: "left",
-                    backgroundColor: copyShortcut === opt.value ? "#fff" : "transparent",
-                    color: copyShortcut === opt.value ? "#000" : "#555",
-                    borderColor: copyShortcut === opt.value ? "#fff" : "#222",
-                    cursor: "pointer", fontFamily: "var(--font-mono)", transition: "all 0.15s",
-                    position: "relative",
-                  }}
-                >
-                  {copyShortcut === opt.value && <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)" }}>✓</span>}
-                  <span style={{ fontSize: "13px", fontWeight: "bold", marginBottom: "2px" }}>{opt.label}</span>
-                  <span style={{ fontSize: "10px", color: copyShortcut === opt.value ? "#555" : "#444" }}>{opt.desc}</span>
-                </button>
-              ))}
-            </div>
+            {/* コピーショートカット（PCのみ） */}
+            {!isMobile && (
+              <div style={{ marginBottom: "24px" }}>
+                <div style={{ fontSize: "11px", color: "#555", marginBottom: "10px", letterSpacing: "0.06em" }}>COPY SHORTCUT</div>
+                {([
+                  { value: "cmd+enter" as const, label: "⌘ / Ctrl + Enter", desc: "このショートカットでコピー＆一時停止" },
+                  { value: "shift+enter" as const, label: "Shift + Enter", desc: "Enterで改行、このショートカットでコピー" },
+                ]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setCopyShortcut(opt.value)}
+                    style={{
+                      display: "flex", flexDirection: "column", alignItems: "flex-start",
+                      width: "100%", padding: "12px 14px", marginBottom: "6px",
+                      borderRadius: "8px", border: "1px solid", textAlign: "left",
+                      backgroundColor: copyShortcut === opt.value ? "#fff" : "transparent",
+                      color: copyShortcut === opt.value ? "#000" : "#555",
+                      borderColor: copyShortcut === opt.value ? "#fff" : "#222",
+                      cursor: "pointer", fontFamily: "var(--font-mono)", transition: "all 0.15s",
+                      position: "relative",
+                    }}
+                  >
+                    {copyShortcut === opt.value && <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)" }}>✓</span>}
+                    <span style={{ fontSize: "13px", fontWeight: "bold", marginBottom: "2px" }}>{opt.label}</span>
+                    <span style={{ fontSize: "10px", color: copyShortcut === opt.value ? "#555" : "#444" }}>{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* モード */}
             <div>
