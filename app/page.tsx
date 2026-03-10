@@ -46,6 +46,20 @@ const DEATH_MESSAGES: { main: string; sub: string }[] = [
   { main: "惜しい。次こそ。", sub: "惜しいは成長の証だ。" },
 ];
 
+// 入力画面左上のコーチングメッセージ
+const COACH_MESSAGES = [
+  "とにかく書け。",
+  "考えるな。動け。",
+  "完璧より完了。",
+  "手が止まったら消える。",
+  "示弱な文章はない。",
+  "知ってることだけでいい。",
+  "誤字が出りても止まるな。",
+  "書いたものはAIが整える。",
+  "今の思考を名前にしろ。",
+  "スピードが最武器だ。",
+];
+
 type Mode = "hard" | "soft";
 type AppState = "lp" | "idle" | "running" | "stopped" | "soft-deleting";
 
@@ -81,6 +95,9 @@ export default function Home() {
   const [stickyKey, setStickyKey] = useState(0); // アニメーション再トリガー用
   const recoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stickyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 左上コーチングメッセージのインデックス
+  const [coachIndex, setCoachIndex] = useState(0);
+  const [coachVisible, setCoachVisible] = useState(true);
   // スマホ判定（マウント後に判定）
   const [isMobile, setIsMobile] = useState(false);
 
@@ -191,6 +208,19 @@ export default function Home() {
 
     return () => clearTimerInterval();
   }, [appState, mode, showSettings, showAbout, clearTimerInterval, clearSoftInterval]);
+
+  // コーチングメッセージを定期的に切り替え（runningガidleのときのみ）
+  useEffect(() => {
+    if (appState !== "running" && appState !== "idle") return;
+    const rotate = setInterval(() => {
+      setCoachVisible(false);
+      setTimeout(() => {
+        setCoachIndex((i) => (i + 1) % COACH_MESSAGES.length);
+        setCoachVisible(true);
+      }, 400); // フェードアウト後に切り替え
+    }, 5000);
+    return () => clearInterval(rotate);
+  }, [appState]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -681,7 +711,7 @@ export default function Home() {
           <div>{stickyMessage}</div>
         </div>
       )}
-      {/* ヘッダー：モード切替 + 小さいタイマー */}
+      {/* ヘッダー：左＝コーチングメッセージ / 右＝モード切替 + 文字数 + ⚙️ + ? */}
       <div
         style={{
           display: "flex",
@@ -691,8 +721,25 @@ export default function Home() {
           flexShrink: 0,
         }}
       >
-        {/* モード切替 + ツールチップ */}
-        <div style={{ display: "flex", gap: "6px", position: "relative" }}>
+        {/* 左上：コーチングメッセージ */}
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "clamp(12px, 1.8vw, 15px)",
+            color: "#2a2a2a",
+            letterSpacing: "0.04em",
+            opacity: coachVisible ? 1 : 0,
+            transition: "opacity 0.4s ease",
+            userSelect: "none",
+            pointerEvents: "none",
+          }}
+        >
+          {COACH_MESSAGES[coachIndex]}
+        </div>
+
+        {/* 右上：モード切替 + 文字数 + 設定 + ? */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", position: "relative" }}>
+          {/* HARD / SOFT トグル */}
           {(["hard", "soft"] as Mode[]).map((m) => (
             <button
               key={m}
@@ -701,28 +748,28 @@ export default function Home() {
               onMouseLeave={() => setHoveredMode(null)}
               style={{
                 fontFamily: "var(--font-mono)",
-                padding: "4px 12px",
-                fontSize: "11px",
+                padding: "4px 10px",
+                fontSize: "10px",
                 borderRadius: "4px",
                 cursor: "pointer",
                 border: "1px solid",
                 backgroundColor: mode === m ? "#fff" : "transparent",
                 color: mode === m ? "#000" : "#444",
-                borderColor: mode === m ? "#fff" : "#333",
+                borderColor: mode === m ? "#fff" : "#2a2a2a",
                 transition: "all 0.2s",
+                letterSpacing: "0.08em",
               }}
             >
               {m.toUpperCase()}
             </button>
           ))}
-
           {/* ツールチップ */}
           {hoveredMode && (
             <div
               style={{
                 position: "absolute",
                 top: "calc(100% + 8px)",
-                left: 0,
+                right: 0,
                 backgroundColor: "#111",
                 border: "1px solid #2a2a2a",
                 borderRadius: "6px",
@@ -732,36 +779,19 @@ export default function Home() {
                 pointerEvents: "none",
               }}
             >
-              <div
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "11px",
-                  fontWeight: "bold",
-                  color: "#fff",
-                  marginBottom: "4px",
-                  letterSpacing: "0.08em",
-                }}
-              >
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: "bold", color: "#fff", marginBottom: "4px", letterSpacing: "0.08em" }}>
                 {hoveredMode.toUpperCase()}
               </div>
-              <div
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "11px",
-                  color: "#666",
-                  lineHeight: "1.6",
-                }}
-              >
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "#666", lineHeight: "1.6" }}>
                 {hoveredMode === "hard"
                   ? "10秒間手を止めると全文を即削除。\n容赦なし。"
                   : "10秒間手を止めると末尾から1文字ずつ削除。\n書き続ければ止まる。"}
               </div>
             </div>
           )}
-        </div>
-
-        {/* 右上：文字数 + 設定ボタン */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {/* 区切り線 */}
+          <div style={{ width: "1px", height: "20px", backgroundColor: "#1e1e1e", margin: "0 4px" }} />
+          {/* 文字数 */}
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -796,7 +826,7 @@ export default function Home() {
           >
             ⚙️
           </button>
-          {/* ? ボタン（ライティング画面） */}
+          {/* ? ボタン */}
           <button
             onClick={() => setShowAbout(true)}
             style={{
