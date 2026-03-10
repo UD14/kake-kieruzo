@@ -441,8 +441,8 @@ export default function Home() {
             backgroundImage: `url('${bgImage}')`,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            opacity: 0.85,
-            filter: "brightness(0.6) contrast(1.2)",
+            opacity: 0.35,
+            filter: "brightness(0.7) contrast(1.1)",
             zIndex: 0,
           }}
         />
@@ -451,7 +451,7 @@ export default function Home() {
           style={{
             position: "absolute",
             inset: 0,
-            background: "radial-gradient(circle at center 40%, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.1) 100%)",
+            background: "radial-gradient(circle at center 40%, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.05) 100%)",
             zIndex: 1,
           }}
         />
