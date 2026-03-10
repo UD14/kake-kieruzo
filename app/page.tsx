@@ -945,7 +945,7 @@ export default function Home() {
             }}>
               頭の中のものを、そのまま出せ。<br />
               整形はこの後、コピペしてAIに任せればいい。<br />
-              <span style={{ color: "rgba(255,255,255,0.12)" }}>いいから、早く書け。</span>
+              <span>いいから、早く書け。</span>
             </p>
           </div>
         )}
