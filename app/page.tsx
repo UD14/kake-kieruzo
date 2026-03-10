@@ -451,20 +451,48 @@ export default function Home() {
             Forced Writing Tool
           </p>
 
-          {/* タイトル */}
-          <h1
-            style={{
-              fontSize: "clamp(36px, 8vw, 68px)",
-              fontWeight: "bold",
-              color: "#fff",
-              letterSpacing: "0.03em",
-              marginBottom: "16px",
-              textAlign: "center",
-              lineHeight: 1.1,
-            }}
-          >
-            書け、消えるぞ
-          </h1>
+          {/* タイトル + ?ボタン */}
+          <div style={{ position: "relative", display: "inline-block", textAlign: "center", marginBottom: "16px" }}>
+            <h1
+              style={{
+                fontSize: "clamp(36px, 8vw, 68px)",
+                fontWeight: "bold",
+                color: "#fff",
+                letterSpacing: "0.03em",
+                lineHeight: 1.1,
+              }}
+            >
+              書け、消えるぞ
+            </h1>
+            <button
+              onClick={() => setShowAbout(true)}
+              style={{
+                position: "absolute",
+                top: "0",
+                right: "-40px",
+                fontFamily: "var(--font-mono)",
+                fontSize: "12px",
+                color: "#444",
+                background: "transparent",
+                border: "1px solid #333",
+                borderRadius: "50%",
+                width: "26px",
+                height: "26px",
+                cursor: "pointer",
+                lineHeight: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "color 0.2s, border-color 0.2s",
+                zIndex: 10,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "#aaa"; e.currentTarget.style.borderColor = "#777"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "#444"; e.currentTarget.style.borderColor = "#333"; }}
+              title="このサイトとは？"
+            >
+              ?
+            </button>
+          </div>
 
           {/* サブコピー */}
           <p
@@ -550,39 +578,6 @@ export default function Home() {
             Start Writing →
           </button>
 
-          {/* 注釈 */}
-          <p style={{ marginTop: "20px", fontSize: "11px", color: "#333", letterSpacing: "0.04em" }}>
-            10秒間、キーを叩き続けろ。
-          </p>
-
-          {/* ? ボタン（LP右下） */}
-          <button
-            onClick={() => setShowAbout(true)}
-            style={{
-              position: "absolute",
-              bottom: "24px",
-              right: "24px",
-              fontFamily: "var(--font-mono)",
-              fontSize: "13px",
-              color: "#333",
-              background: "transparent",
-              border: "1px solid #222",
-              borderRadius: "50%",
-              width: "28px",
-              height: "28px",
-              cursor: "pointer",
-              lineHeight: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 10,
-              transition: "color 0.2s, border-color 0.2s",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = "#888"; e.currentTarget.style.borderColor = "#555"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#222"; }}
-            title="このサイトとは？"
-          >
-          </button>
         </div>
       </main>
     );
