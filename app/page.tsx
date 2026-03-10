@@ -397,7 +397,7 @@ export default function Home() {
                   </div>
                   <div style={{ fontSize: "10px", lineHeight: "1.6", color: isSelected ? "#aaa" : "#3a3a3a" }}>
                     {m === "hard"
-                      ? "0秒で全文即削除。\n容赦なし。"
+                      ? "10秒で全文即削除。\n容赦なし。"
                       : "末尾から1文字ずつ削除。\n書けば止まる。"}
                   </div>
                 </button>
@@ -592,8 +592,8 @@ export default function Home() {
                 }}
               >
                 {hoveredMode === "hard"
-                  ? "0秒到達で全文を即削除。\n容赦なし。"
-                  : "0秒から末尾を1文字ずつ削除。\n書き続ければ止まる。"}
+                  ? "10秒間手を止めると全文を即削除。\n容赦なし。"
+                  : "10秒間手を止めると末尾から1文字ずつ削除。\n書き続ければ止まる。"}
               </div>
             </div>
           )}
