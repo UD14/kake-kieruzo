@@ -118,3 +118,182 @@ textarea {
 textarea::-webkit-scrollbar {
   display: none;
 }
+
+/* 画面振動（タイピング時用） */
+@keyframes shake {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+
+  25% {
+    transform: translate(2px, 1px) rotate(0.2deg);
+  }
+
+  50% {
+    transform: translate(-1px, -2px) rotate(-0.1deg);
+  }
+
+  75% {
+    transform: translate(-2px, 1px) rotate(0.1deg);
+  }
+
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
+/* 微小な振動（残り時間が少ない時用） */
+@keyframes rumble {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  25% {
+    transform: translate(1px, 0);
+  }
+
+  50% {
+    transform: translate(-1px, 1px);
+  }
+
+  75% {
+    transform: translate(0, -1px);
+  }
+
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/* 1. 通常の回復時のグリーンフラッシュ（波紋） */
+@keyframes flash-green {
+  0% {
+    background: radial-gradient(circle at center, rgba(34, 197, 94, 0.6) 0%, rgba(34, 197, 94, 0) 50%);
+    transform: scale(0.8);
+    opacity: 1;
+  }
+
+  100% {
+    background: radial-gradient(circle at center, rgba(34, 197, 94, 0.6) 0%, rgba(34, 197, 94, 0) 50%);
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* 2. 黄色状態（中ピンチ）からの回復時のミドル・グリーンフラッシュ（強めの波紋） */
+@keyframes flash-green-mid {
+  0% {
+    background: radial-gradient(circle at center, rgba(34, 197, 94, 0.8) 0%, rgba(34, 197, 94, 0) 60%);
+    transform: scale(0.5);
+    opacity: 1;
+  }
+
+  100% {
+    background: radial-gradient(circle at center, rgba(34, 197, 94, 0.8) 0%, rgba(34, 197, 94, 0) 60%);
+    transform: scale(3.0);
+    opacity: 0;
+  }
+}
+
+/* 3. 赤色状態（大ピンチ）からの回復時のマックス・グリーンフラッシュ（超絶グラデーション波動） */
+@keyframes flash-green-max {
+  0% {
+    background: radial-gradient(circle at center, rgba(34, 197, 94, 1) 0%, rgba(34, 197, 94, 0.3) 40%, rgba(34, 197, 94, 0) 70%);
+    transform: scale(0.2);
+    opacity: 1;
+    filter: brightness(2) contrast(1.5);
+  }
+
+  100% {
+    background: radial-gradient(circle at center, rgba(34, 197, 94, 1) 0%, rgba(34, 197, 94, 0.3) 40%, rgba(34, 197, 94, 0) 70%);
+    transform: scale(4.5);
+    opacity: 0;
+    filter: brightness(1) contrast(1);
+  }
+}
+
+/* 1. 通常の回復テキスト（10.0） */
+@keyframes heal-text-green {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+    text-shadow: 0 0 20px rgba(34, 197, 94, 1);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1.1);
+    text-shadow: 0 0 30px rgba(34, 197, 94, 1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scale(1);
+    text-shadow: 0 0 10px rgba(34, 197, 94, 0);
+  }
+}
+
+/* 2. 黄色からの回復テキスト（やや派手な緑） */
+@keyframes heal-text-mid {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.9);
+    text-shadow: 0 0 30px rgba(34, 197, 94, 1);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1.4);
+    text-shadow: 0 0 60px rgba(34, 197, 94, 1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(1.2);
+    text-shadow: 0 0 10px rgba(34, 197, 94, 0);
+  }
+}
+
+/* 3. 赤色からの回復テキスト（超絶派手な緑） */
+@keyframes heal-text-max {
+  0% {
+    opacity: 0;
+    transform: translateY(50px) scale(1);
+    text-shadow: 0 0 50px rgba(34, 197, 94, 1);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(2.2);
+    text-shadow: 0 0 150px rgba(34, 197, 94, 1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-120px) scale(1.5);
+    text-shadow: 0 0 20px rgba(34, 197, 94, 0);
+  }
+}
+
+/* 4. sticky演出（EXCELLENT等）— 2.5秒かけてゆっくりフェードアウト */
+@keyframes sticky-message {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(0.8);
+  }
+
+  10% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -70%) scale(0.95);
+  }
+}

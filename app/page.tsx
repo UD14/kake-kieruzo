@@ -73,7 +73,12 @@ export default function Home() {
   const [recoverCount, setRecoverCount] = useState(0);
   const [recoverType, setRecoverType] = useState<"green" | "yellow" | "red">("green");
   const [recoverMessage, setRecoverMessage] = useState<string>("+10.0");
+  // 長く残るメッセージ用（EXCELLENT等）
+  const [stickyMessage, setStickyMessage] = useState<string | null>(null);
+  const [stickyType, setStickyType] = useState<"yellow" | "red">("red");
+  const [stickyKey, setStickyKey] = useState(0); // アニメーション再トリガー用
   const recoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stickyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // スマホ判定（マウント後に判定）
   const [isMobile, setIsMobile] = useState(false);
 
@@ -221,6 +226,18 @@ export default function Home() {
           const messages = RECOVER_MESSAGES[type];
           setRecoverMessage(messages[Math.floor(Math.random() * messages.length)]);
           setRecoverCount((c) => c + 1);
+
+          // red/yellowゾーンからの回復時のみ、長く残るメッセージを更新
+          if (type === "red" || type === "yellow") {
+            const msg = messages[Math.floor(Math.random() * messages.length)];
+            setStickyMessage(msg);
+            setStickyType(type);
+            setStickyKey((k) => k + 1);
+            if (stickyTimeoutRef.current) clearTimeout(stickyTimeoutRef.current);
+            stickyTimeoutRef.current = setTimeout(() => {
+              setStickyMessage(null);
+            }, 2500);
+          }
 
           if (recoverTimeoutRef.current) clearTimeout(recoverTimeoutRef.current);
           recoverTimeoutRef.current = setTimeout(() => {
@@ -485,8 +502,8 @@ export default function Home() {
         />
       )}
 
-      {/* ホイミ（回復）浮き出しテキスト */}
-      {recoverCount > 0 && (
+      {/* ホイミ（回復）浮き出しテキスト — フラッシュに連動した短い演出（greenのみ） */}
+      {recoverCount > 0 && recoverType === "green" && (
         <div
           key={`text-${recoverCount}`}
           style={{
@@ -494,30 +511,46 @@ export default function Home() {
             top: "40%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            color: recoverType === "red" ? "#ffffff" : healTextColor,
+            color: healTextColor,
             fontFamily: "var(--font-mono)",
-            fontSize: recoverType === "red" ? "72px" : recoverType === "yellow" ? "48px" : "32px",
+            fontSize: "28px",
             fontWeight: "bold",
             pointerEvents: "none",
             zIndex: 15,
-            animation: healTextAnim,
+            animation: "heal-text-green 0.7s ease-out forwards",
             textAlign: "center",
-            textShadow: recoverType === "red"
-              ? "0 0 20px rgba(74, 222, 128, 0.9), 0 0 40px rgba(74, 222, 128, 0.5)"
-              : recoverType === "yellow"
-                ? "0 0 12px rgba(74, 222, 128, 0.4)"
-                : "none",
-            fontStyle: recoverType === "red" ? "italic" : "normal",
-            letterSpacing: recoverType === "red" ? "0.05em" : "0",
           }}
         >
-          {recoverType === "red" && (
-            <div style={{ fontSize: "24px", color: healTextColor, marginBottom: "4px", fontStyle: "normal", textShadow: "none", letterSpacing: "0" }}>+10.0s</div>
-          )}
-          {recoverType === "yellow" && (
-            <div style={{ fontSize: "16px", color: healTextColor, marginBottom: "2px", opacity: 0.9 }}>+10.0s</div>
-          )}
-          <div>{recoverMessage}</div>
+          RESET
+        </div>
+      )}
+
+      {/* sticky演出 — red/yellowゾーンからの回復時に長くゆっくり残る */}
+      {stickyMessage && (
+        <div
+          key={`sticky-${stickyKey}`}
+          style={{
+            position: "absolute",
+            top: "40%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            color: stickyType === "red" ? "#ffffff" : healTextColor,
+            fontFamily: "var(--font-mono)",
+            fontSize: stickyType === "red" ? "72px" : "48px",
+            fontWeight: "bold",
+            pointerEvents: "none",
+            zIndex: 15,
+            animation: "sticky-message 2.5s ease-out forwards",
+            textAlign: "center",
+            textShadow: stickyType === "red"
+              ? "0 0 20px rgba(74, 222, 128, 0.9), 0 0 40px rgba(74, 222, 128, 0.5)"
+              : "0 0 12px rgba(74, 222, 128, 0.4)",
+            fontStyle: stickyType === "red" ? "italic" : "normal",
+            letterSpacing: stickyType === "red" ? "0.05em" : "0",
+          }}
+        >
+          <div style={{ fontSize: stickyType === "red" ? "22px" : "15px", color: healTextColor, marginBottom: "4px", fontStyle: "normal", letterSpacing: "0" }}>RESET</div>
+          <div>{stickyMessage}</div>
         </div>
       )}
       {/* ヘッダー：モード切替 + 小さいタイマー */}
