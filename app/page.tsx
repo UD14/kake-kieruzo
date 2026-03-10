@@ -284,7 +284,109 @@ export default function Home() {
         ? "#eab308"
         : "#ffffff";
 
-  // ─── LP画面 ───────────────────────────────────────────────
+  // ─── 説明モーダル—どの画面からでも開ける最先期リターン ───────────────
+  if (showAbout) {
+    return (
+      <div
+        onClick={() => setShowAbout(false)}
+        style={{
+          position: "fixed", inset: 0,
+          backgroundColor: "rgba(0,0,0,0.92)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          zIndex: 200, padding: "16px",
+          fontFamily: "var(--font-mono)",
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            backgroundColor: "#0d0d0d", border: "1px solid #222",
+            borderRadius: "14px", padding: "28px 28px 24px",
+            width: "min(520px, 95vw)", maxHeight: "85vh",
+            overflowY: "auto", fontFamily: "var(--font-mono)", scrollbarWidth: "none",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+            <div>
+              <div style={{ fontSize: "11px", color: "#555", letterSpacing: "0.15em", marginBottom: "4px" }}>FORCED WRITING TOOL</div>
+              <div style={{ fontSize: "20px", fontWeight: "bold", color: "#fff", letterSpacing: "0.03em" }}>書け、消えるぞ とは？</div>
+            </div>
+            <button onClick={() => setShowAbout(false)} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "20px", lineHeight: 1, padding: "4px" }}>✕</button>
+          </div>
+          <div style={{ marginBottom: "24px" }}>
+            <div style={{ fontSize: "11px", color: "#555", letterSpacing: "0.12em", marginBottom: "10px" }}>📌 このサービスの思想</div>
+            <div style={{ fontSize: "13px", color: "#999", lineHeight: "2.0" }}>
+              「完璧な文章を書こう」と思った瞬間、人は止まります。<br />
+              このツールは、その<span style={{ color: "#fff" }}>「考えすぎ」を物理的に不可能にする</span>ために作られました。<br /><br />
+              10秒間キーを叩かなければ、文章は消えます。<br />
+              だから、とにかく書く。整形や推謠は、コピーした後AIに任せれば十分です。<br /><br />
+              <span style={{ color: "#666" }}>アウトプットが先。完璧さは後からでいい。</span>
+            </div>
+          </div>
+          <div style={{ height: "1px", backgroundColor: "#1a1a1a", marginBottom: "24px" }} />
+          <div style={{ marginBottom: "24px" }}>
+            <div style={{ fontSize: "11px", color: "#555", letterSpacing: "0.12em", marginBottom: "12px" }}>⌨️ 基本操作</div>
+            {[
+              { key: "文字を入力する", desc: "タイマーが10秒にリセットされます。とにかく何かを打ち続けてください。" },
+              { key: "⌘ / Ctrl + Enter", desc: "書いた内容をクリップボードにコピーして、入力画面に戻ります。" },
+              { key: "タイムアップ", desc: "10秒間入力がないと文章が消えます。消えた後もクリックまたはキー入力で再挑戦できます。" },
+            ].map((item) => (
+              <div key={item.key} style={{ marginBottom: "14px", paddingLeft: "12px", borderLeft: "2px solid #222" }}>
+                <div style={{ fontSize: "12px", color: "#fff", fontWeight: "bold", marginBottom: "3px" }}>{item.key}</div>
+                <div style={{ fontSize: "11px", color: "#666", lineHeight: "1.7" }}>{item.desc}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ height: "1px", backgroundColor: "#1a1a1a", marginBottom: "24px" }} />
+          <div style={{ marginBottom: "24px" }}>
+            <div style={{ fontSize: "11px", color: "#555", letterSpacing: "0.12em", marginBottom: "12px" }}>⚔️ HARDモード と SOFTモードの違い</div>
+            <div style={{ display: "flex", gap: "10px" }}>
+              {[
+                { label: "HARD", color: "#ef4444", desc: "10秒間入力がないと、書いた文章が全て即座に消えます。容赦なし。" },
+                { label: "SOFT", color: "#eab308", desc: "10秒経過後、末尾から1文字ずつ削除されていきます。書き続ければ止まります。" },
+              ].map((m) => (
+                <div key={m.label} style={{ flex: 1, padding: "14px", borderRadius: "8px", border: "1px solid #1e1e1e", backgroundColor: "rgba(255,255,255,0.02)" }}>
+                  <div style={{ fontSize: "11px", fontWeight: "bold", color: m.color, marginBottom: "6px", letterSpacing: "0.1em" }}>{m.label}</div>
+                  <div style={{ fontSize: "11px", color: "#666", lineHeight: "1.7" }}>{m.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ height: "1px", backgroundColor: "#1a1a1a", marginBottom: "24px" }} />
+          <div style={{ marginBottom: "8px" }}>
+            <div style={{ fontSize: "11px", color: "#555", letterSpacing: "0.12em", marginBottom: "12px" }}>💡 使い方のヒント</div>
+            {[
+              "文章の質を気にしないでください。誤字でも断片でも、出すことが大事です。",
+              "コピー後はChatGPTや Claude などのAIに「整形して」と貼り付けるだけでOKです。",
+              "設定（⚙️）からコピーのショートカットキーを変更できます。",
+              "タイマーが赤くなってからの回復は特別な演出が出ます。ギリギリまで粸ってみてください。",
+            ].map((tip, i) => (
+              <div key={i} style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+                <span style={{ color: "#333", fontSize: "11px", flexShrink: 0 }}>—</span>
+                <span style={{ fontSize: "11px", color: "#666", lineHeight: "1.7" }}>{tip}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowAbout(false)}
+            style={{
+              width: "100%", marginTop: "20px", padding: "12px",
+              backgroundColor: "transparent", border: "1px solid #222",
+              borderRadius: "8px", color: "#555", cursor: "pointer",
+              fontFamily: "var(--font-mono)", fontSize: "12px",
+              letterSpacing: "0.08em", transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#555"; e.currentTarget.style.color = "#fff"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#222"; e.currentTarget.style.color = "#555"; }}
+          >
+            閉じる
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── LP画面 ──────────────────────────────────────────────────
   if (appState === "lp") {
     return (
       <main
@@ -480,7 +582,6 @@ export default function Home() {
             onMouseLeave={(e) => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#222"; }}
             title="このサイトとは？"
           >
-            ?
           </button>
         </div>
       </main>
