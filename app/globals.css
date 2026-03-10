@@ -49,16 +49,16 @@ body {
   }
 }
 
-/* 赤パルス警告アニメーション */
+/* 赤パルス警告アニメーション（3秒以下） */
 @keyframes pulse-red {
 
   0%,
   100% {
-    background-color: #000000;
+    background-color: rgba(220, 38, 38, 0.08);
   }
 
   50% {
-    background-color: rgba(220, 38, 38, 0.3);
+    background-color: rgba(220, 38, 38, 0.45);
   }
 }
 
